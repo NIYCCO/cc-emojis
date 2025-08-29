@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "cc-emojis",
+	"version": "1.0.0",
+	"name": "CC-Emojis",
+	"description": "Diese Mod fügt ein Emoji Menü für die Emojis von Kaktus Klicker hinzu",
+	"authors": [
+		"NIYCCO"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/cc-emojis/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.niycco.CCEmojis"
+		],
+        "client": [
+            "com.niycco.utils.EmojiRegistry"
+        ]
+	},
+	"mixins": [
+		"cc-emojis.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.17.2",
+		"minecraft": ">=1.21.7",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
