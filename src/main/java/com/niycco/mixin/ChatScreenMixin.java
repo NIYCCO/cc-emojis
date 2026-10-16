@@ -8,13 +8,15 @@ import com.niycco.utils.EmojiRegistry;
 import com.niycco.widgets.EmojiButtonWidget;
 import com.niycco.widgets.EmojiOpenButtonWidget;
 import com.niycco.widgets.EmojiSelectionPanel;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.GridWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.layouts.GridLayout;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -27,9 +29,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(ChatScreen.class)
 public class ChatScreenMixin extends Screen implements EmojiInsertable {
 
-    @Unique private static final Identifier TEXTURE = Identifier.of(CCEmojis.MOD_ID, "emoji_button");
+    @Unique private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(CCEmojis.MOD_ID, "emoji_button");
 
-    @Shadow protected TextFieldWidget chatField;
+    @Shadow protected EditBox input;
 
     @Unique private static final int TEXT_BOX_CURSOR_WIDTH = 8;
 
@@ -39,7 +41,7 @@ public class ChatScreenMixin extends Screen implements EmojiInsertable {
     @Unique
     EmojiSelectionPanel emojiSelectionPanel;
 
-    protected ChatScreenMixin(Text title) {
+    protected ChatScreenMixin(Component title) {
         super(title);
     }
 
@@ -57,30 +59,30 @@ public class ChatScreenMixin extends Screen implements EmojiInsertable {
         int panelY = emojiButtonY - padding - panelHeight;
 
         emojiSelectionPanel = new EmojiSelectionPanel(panelX, panelY, panelWidth, panelHeight);
-        this.addDrawableChild(emojiSelectionPanel);
+        this.addRenderableWidget(emojiSelectionPanel);
 
-        GridWidget grid = new GridWidget();
-        grid.setSpacing(2);
-        GridWidget.Adder adder = grid.createAdder(7);
+        GridLayout grid = new GridLayout();
+        grid.spacing(2);
+        GridLayout.RowHelper adder = grid.createRowHelper(7);
 
         for (String emoji : EmojiRegistry.snippets.keySet()) {
-            EmojiButtonWidget button = new EmojiButtonWidget(0, 0, 15, 15, Text.of(emoji));
-            adder.add(button);
+            EmojiButtonWidget button = new EmojiButtonWidget(0, 0, 15, 15, Component.literal(emoji));
+            adder.addChild(button);
         }
 
         grid.setX(panelX + padding);
         grid.setY(panelY + 12 + padding);
-        grid.refreshPositions();
+        grid.arrangeElements();
 
-        grid.forEachChild(emojiSelectionPanel::addChildren);
+        grid.visitWidgets(emojiSelectionPanel::addChildren);
 
-        emojiOpenButton = new EmojiOpenButtonWidget(12, 12, ScreenTexts.EMPTY, 12, 12, TEXTURE, button -> {
+        emojiOpenButton = new EmojiOpenButtonWidget(12, 12, CommonComponents.EMPTY, 12, 12, TEXTURE, button -> {
             button.setOutlined(!button.isOutlined());
             emojiSelectionPanel.toggleVisible();
         }, null);
 
         emojiOpenButton.setPosition(emojiButtonX, emojiButtonY);
-        this.addDrawableChild(emojiOpenButton);
+        this.addRenderableWidget(emojiOpenButton);
     }
 
     @Inject(method = "init", at = @At(value = "RETURN"))
@@ -88,16 +90,17 @@ public class ChatScreenMixin extends Screen implements EmojiInsertable {
         addEmojiComponents();
     }
 
-    @Inject(method = "mouseClicked", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/widget/TextFieldWidget;mouseClicked(DDI)Z"), cancellable = true)
-    private void callSuperMouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
-        if(super.mouseClicked(mouseX, mouseY, button)) cir.setReturnValue(true);
-        else this.setFocused(chatField);
+    @Inject(method = "mouseClicked", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/input/MouseButtonEvent;button()I", ordinal = 0), cancellable = true)
+    private void callSuperMouseClicked(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
+        if(super.mouseClicked(event, doubleClick)) cir.setReturnValue(true);
+        else this.setFocused(input);
 
     }
 
-    @WrapOperation(method = "keyPressed", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/Screen;keyPressed(III)Z"))
-    public boolean skipArrowKeys(ChatScreen instance, int keyCode, int scanCode, int modifiers, Operation<Boolean> original) {
-        return ((keyCode != GLFW.GLFW_KEY_UP && keyCode != GLFW.GLFW_KEY_DOWN) || !this.chatField.isFocused()) && original.call(this, keyCode, scanCode, modifiers);
+    @WrapOperation(method = "keyPressed", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;keyPressed(Lnet/minecraft/client/input/KeyEvent;)Z"))
+    public boolean skipArrowKeys(ChatScreen instance, KeyEvent event, Operation<Boolean> original) {
+        int keyCode = event.key();
+        return ((keyCode != GLFW.GLFW_KEY_UP && keyCode != GLFW.GLFW_KEY_DOWN) || !this.input.isFocused()) && original.call(this, event);
     }
 
     @ModifyConstant(method = "init",constant = @Constant(intValue = 4, ordinal = 1),require = 1)
@@ -106,19 +109,19 @@ public class ChatScreenMixin extends Screen implements EmojiInsertable {
         return original + TEXT_BOX_CURSOR_WIDTH + emojiButtonWidth + 2;
     }
 
-    @ModifyArgs(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"))
+    @ModifyArgs(method = "extractRenderState", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"))
     private void fillBackgroundAtTextBox(Args args) {
-        args.set(0, this.chatField.getX() - 2);
-        args.set(1, this.chatField.getY() - 2);
-        args.set(2, this.chatField.getRight() + TEXT_BOX_CURSOR_WIDTH);
-        args.set(3, this.chatField.getBottom() - 2);
+        args.set(0, this.input.getX() - 2);
+        args.set(1, this.input.getY() - 2);
+        args.set(2, this.input.getRight() + TEXT_BOX_CURSOR_WIDTH);
+        args.set(3, this.input.getBottom() - 2);
     }
 
     @Override
     public void insertEmoji(String emoji) {
-        this.chatField.write(emoji);
-        if(client != null) this.client.send( () -> {
-            if(client.currentScreen == this) this.setFocused(this.chatField);
+        this.input.insertText(emoji);
+        this.minecraft.schedule(() -> {
+            if(minecraft.screen == this) this.setFocused(this.input);
         });
     }
 

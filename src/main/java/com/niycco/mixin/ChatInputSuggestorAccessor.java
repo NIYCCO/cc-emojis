@@ -1,12 +1,12 @@
 package com.niycco.mixin;
 
-import net.minecraft.client.gui.screen.ChatInputSuggestor;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.client.gui.components.EditBox;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(ChatInputSuggestor.class)
+@Mixin(CommandSuggestions.class)
 public interface ChatInputSuggestorAccessor {
-    @Accessor
-    TextFieldWidget getTextField();
+    @Accessor("input")
+    EditBox getTextField();
 }

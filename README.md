@@ -10,7 +10,7 @@ This mod adds an emoji menu for the emojis from the gamemode Cactus Clicker on [
 - Autocomplete shows a preview of all emojis
 
 ## Compatibility
-Works with Minecraft Fabric 1.21.7 Version or higher
+Works with Minecraft Fabric 26.1.2 (requires Java 25)
 
 ## Screenshots
 

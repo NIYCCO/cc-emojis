@@ -3,13 +3,14 @@ package com.niycco.utils;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.niycco.CCEmojis;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.JsonHelper;
+import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.minecraft.util.GsonHelper;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -28,14 +29,9 @@ public class EmojiRegistry implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(Identifier.fromNamespaceAndPath(CCEmojis.MOD_ID, "emoji_registry"), new ResourceManagerReloadListener() {
             @Override
-            public Identifier getFabricId() {
-                return null;
-            }
-
-            @Override
-            public void reload(ResourceManager manager) {
+            public void onResourceManagerReload(ResourceManager manager) {
                 snippets.clear();
                 emojiCodesCombined.clear();
                 emojiPreview.clear();
@@ -44,16 +40,16 @@ public class EmojiRegistry implements ClientModInitializer {
                 boolean done = false;
 
                 // Alle default.json aus allen aktiven Packs (inkl. Server-RP)
-                var definitions = manager.findResources("font", id -> id.getPath().endsWith("font/default.json"));
+                var definitions = manager.listResources("font", id -> id.getPath().endsWith("font/default.json"));
                 System.out.println("Gefundene font/default.json: " + definitions.keySet());
 
                 for (var entry : definitions.entrySet()) {
                     if (done) break;
 
                     try (InputStreamReader reader =
-                                 new InputStreamReader(entry.getValue().getInputStream(), StandardCharsets.UTF_8)) {
+                                 new InputStreamReader(entry.getValue().open(), StandardCharsets.UTF_8)) {
 
-                        JsonObject root = JsonHelper.deserialize(GSON, reader, JsonObject.class);
+                        JsonObject root = GsonHelper.fromJson(GSON, reader, JsonObject.class);
                         if (root == null) continue;
 
                         var providers = root.getAsJsonArray("providers");
